@@ -1009,6 +1009,7 @@ impl fmt::Display for Record {
 }
 
 /// An iterator over the records of a Fasta file.
+#[derive(Debug)]
 pub struct Records<B>
 where
     B: io::BufRead,

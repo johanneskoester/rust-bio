@@ -134,7 +134,7 @@ pub trait FMIndexable {
     /// let positions = match bsr {
     ///     BackwardSearchResult::Complete(sai) => sai.occ(&sa),
     ///     BackwardSearchResult::Partial(sai, _l) => sai.occ(&sa),
-    ///     BackwardSearchResult::Absent => Vec::<usize>::new()
+    ///     BackwardSearchResult::Absent => Vec::<usize>::new(),
     /// };
     ///
     /// assert_eq!(positions, [3, 12, 9]);
