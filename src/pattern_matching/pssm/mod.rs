@@ -116,7 +116,7 @@ pub trait Motif {
             }
         }
 
-        for seq in seqs.iter() {
+        for seq in seqs {
             if seq.len() != seqlen {
                 return Err(Error::InconsistentLen);
             }

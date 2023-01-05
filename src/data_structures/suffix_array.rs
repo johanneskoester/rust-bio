@@ -424,7 +424,7 @@ fn transform_text<T: Integer + Unsigned + NumCast + Copy + Debug>(
 
     let mut transformed: Vec<T> = Vec::with_capacity(text.len());
     let mut s = sentinel_count;
-    for &a in text.iter() {
+    for &a in text {
         if a == sentinel {
             s -= 1;
             transformed.push(cast(s).unwrap());
@@ -465,7 +465,7 @@ impl Sais {
         self.bucket_sizes.clear();
         self.bucket_start.clear();
 
-        for &c in text.iter() {
+        for &c in text {
             if !self.bucket_sizes.contains_key(cast(c).unwrap()) {
                 self.bucket_sizes.insert(cast(c).unwrap(), 0);
             }
@@ -482,7 +482,7 @@ impl Sais {
     /// Initialize pointers to the last element of the buckets.
     fn init_bucket_end<T: Integer + Unsigned + NumCast + Copy>(&mut self, text: &[T]) {
         self.bucket_end.clear();
-        for &r in self.bucket_start[1..].iter() {
+        for &r in &self.bucket_start[1..] {
             self.bucket_end.push(r - 1);
         }
         self.bucket_end.push(text.len() - 1);
@@ -864,7 +864,7 @@ mod tests {
             test_cases.push((&rand_cases[i], "rand test case"));
         }
 
-        for &(text, test_name) in test_cases.iter() {
+        for &(text, test_name) in &test_cases {
             let pos = suffix_array(text);
             for i in 0..(pos.len() - 2) {
                 // Check that every element in the suffix array is lexically <= the next elem

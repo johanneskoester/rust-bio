@@ -434,7 +434,7 @@ impl<F: MatchFunc> Poa<F> {
     pub fn add_alignment(&mut self, aln: &Alignment, seq: TextSlice) {
         let mut prev: NodeIndex<usize> = NodeIndex::new(0);
         let mut i: usize = 0;
-        for op in aln.operations.iter() {
+        for op in &aln.operations {
             match op {
                 AlignmentOperation::Match(None) => {
                     i += 1;

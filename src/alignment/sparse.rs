@@ -77,7 +77,10 @@ pub fn lcskpp(matches: &[(u32, u32)], k: usize) -> SparseAlignmentResult {
 
     // incoming matches must be sorted to let us find the predecessor kmers by binary search.
     for i in 1..matches.len() {
-        assert!(matches[i - 1] < matches[i]);
+        assert!(
+            matches[i - 1] < matches[i],
+            "incoming matches must be sorted."
+        );
     }
 
     let mut events: Vec<(u32, u32, u32)> = Vec::new();
@@ -198,16 +201,21 @@ pub fn sdpkpp(
     }
 
     let k = k as u32;
-    if gap_open > 0 || gap_extend > 0 {
-        panic!("gap parameters cannot be positive")
-    }
+    assert!(
+        gap_open <= 0 && gap_extend <= 0,
+        "gap parameters cannot be positive"
+    );
     let _gap_open = (-gap_open) as u32;
     let _gap_extend = (-gap_extend) as u32;
 
     // incoming matches must be sorted to let us find the predecessor kmers by binary search.
     for i in 1..matches.len() {
-        assert!(matches[i - 1] < matches[i]);
+        assert!(
+            matches[i - 1] < matches[i],
+            "incoming matches must be sorted"
+        );
     }
+    // TODO: use .is_sorted when it's stabilised https://doc.rust-lang.org/std/iter/trait.Iterator.html
 
     let mut events: Vec<(u32, u32, u32)> = Vec::new();
     let mut n = 0;
@@ -402,9 +410,11 @@ pub fn expand_kmer_matches(
     sorted_matches: &[(u32, u32)],
     allowed_mismatches: usize,
 ) -> Vec<(u32, u32)> {
-    // incoming matches must be sorted.
     for i in 1..sorted_matches.len() {
-        assert!(sorted_matches[i - 1] < sorted_matches[i]);
+        assert!(
+            sorted_matches[i - 1] < sorted_matches[i],
+            "incoming matches must be sorted"
+        );
     }
 
     let mut last_match_along_diagonal: HashMapFx<i32, (i32, i32)> = HashMapFx::default();

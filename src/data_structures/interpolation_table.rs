@@ -72,11 +72,9 @@ impl<F: Fn(f64) -> f64> InterpolationTable<F> {
             offset,
         };
 
-        let mut i = table.index(min_x);
-        while i < table.index(max_x) {
+        for i in table.index(min_x)..table.index(max_x) {
             let x = i as f64 / shift;
             table.inner.push((table.func)(x));
-            i += 1;
         }
 
         table
