@@ -514,7 +514,7 @@ impl<F: MatchFunc> Aligner<F> {
     pub fn consensus(&self) -> Vec<u8> {
         let mut consensus: Vec<u8> = vec![];
         let max_index = self.poa.graph.node_count();
-        let mut weight_score_next_vec: Vec<(i32, i32, usize)> = vec![(0, 0, 0); max_index + 1];
+        let mut weight_score_next_vec: Vec<(i32, i32, usize)> = vec![(0, 0, 0); max_index];
         let mut topo = Topo::new(&self.poa.graph);
         // go through the nodes topologically
         while let Some(node) = topo.next(&self.poa.graph) {
