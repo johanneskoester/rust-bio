@@ -1,0 +1,7 @@
+# hostname=myhost
+# $ /srv/homes/user/my/tool -t=1 -r=ref_DLE1_0kb_0labels.cmap -q=qry.bnx -sname=alignment -outfmt=xmap
+# XMAP File Version:	0.2
+# Label Channels:	1
+#h	XmapEntryID	QryContigID	RefContigID	QryStartPos	QryEndPos	RefStartPos	RefEndPos	Orientation	Confidence	HitEnum	QryLen	RefLen	LabelChannel	Alignment
+#f	int	int	int	float	float	float	float	string	float	string	float	float	int	string
+82236	1

@@ -22,6 +22,8 @@ phylogeny = ["pest", "pest_derive", "bio-types/phylogeny"]
 
 
 [dependencies]
+getset = "0.1"
+derive-new = "0.6"
 bytecount = "0.6"
 csv = "1.1"
 num-traits = "0.2"

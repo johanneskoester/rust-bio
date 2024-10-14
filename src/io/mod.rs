@@ -6,3 +6,4 @@ pub mod fastq;
 pub mod gff;
 #[cfg(feature = "phylogeny")]
 pub mod newick;
+pub mod om;

@@ -1,0 +1,8 @@
+# XMAP File Version:	0.2
+# Label Channels:	1
+#h	XmapEntryID	QryContigID	RefContigID	QryStartPos	QryEndPos	RefStartPos	RefEndPos	Orientation	Confidence	HitEnum	QryLen	RefLen	LabelChannel	Alignment
+#f	int	int	int	float	float	float	float	string	float	string	float	float	int	string
+36	1	17	5119.30	465.17	3888.0	9624.0	-	8606	4M1D2M1D1M1D1M1D1M	4654.13	5736.0	1	(37,10)(38,9)(39,8)(40,7)(42,6)(43,5)(45,4)(47,3)(49,2)
+37	2	17	2617.12	5942.70	5396.0	8148.0	+	4434	1M1D1M1D6M	3325.58	2752.0	1	(22,1)(24,2)(26,3)(27,4)(28,5)(29,6)(30,7)(31,8)
+38	3	17	538.88	4004.65	6152.0	1568.0	+	1726	1M1D2M2D3M1D1M	3465.77	4594.0	1	(62,1)(64,2)(65,3)(68,4)(69,5)(70,6)(72,7)
+40	4	22	477.62	2933.80	4974.0	7257.0	+	3416	2M2D3M1D1M1D1M	2456.18	3283.0	1	(84,1)(85,2)(88,3)(89,4)(90,5)(92,6)(94,7)

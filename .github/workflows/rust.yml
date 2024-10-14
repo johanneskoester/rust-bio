@@ -86,7 +86,7 @@ jobs:
     needs: Formatting
     runs-on: ubuntu-latest
     env:
-      MSRV_VERSION: 1.65.0
+      MSRV_VERSION: 1.70.0
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2

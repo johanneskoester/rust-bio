@@ -1,0 +1,10 @@
+# CMAP File Version:	0.1
+# Label Channels:	1
+# Nickase Recognition Site 1:	CTTAAG
+# Number of Consensus Nanomaps:	1
+#h CMapId	ContigLength	NumSites	SiteID	LabelChannel	Position	StdDev	Coverage	Occurrence
+#f int	float	int	int	int	float	float	int	int
+1	248936424.0	3	1	1	4454.0	1.0	1	1
+1	248936424.0	3	2	1	27579.0	1.0	1	1
+1	248936424.0	3	3	1	98003.0	1.0	1	1
+1	248936424.0	3	4	0	248936424.0	1.0	1	0õ
