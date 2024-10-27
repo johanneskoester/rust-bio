@@ -258,4 +258,5 @@ pub mod scores;
 pub mod seq_analysis;
 pub mod stats;
 pub mod utils;
+pub mod blast;
 pub use bio_types;
