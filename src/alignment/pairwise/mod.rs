@@ -914,6 +914,364 @@ impl<F: MatchFunc> Aligner<F> {
         }
     }
 
+    /// Modified version of the core function that allows gap open and gap extend penalties to
+    /// be specified as a function of the position the second sequence y.  These functions are
+    /// one-based and specified as vectors that have y.len() + 1 elements.  In this form of the
+    /// function, the values of gap_open and gap_extend are ignored.
+    ///
+    /// The code for this is a copy of the custom function, with each instance of gap_open and
+    /// gap_extend replaced by a function reference.
+    ///
+    /// It would be more appealing to provide equivalent functionality using bona fide functions
+    /// (allowing for closures), but it is not clear how to do this without breaking existing
+    /// functionality and possibly impacting performance in the case where the gap penalties
+    /// are not functions.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - Textslice
+    /// * `y` - Textslice
+    /// * `gap_open_fn` - [i32]
+    /// * `gap_extend_fn` - [i32]
+    pub fn custom_with_gap_fns(
+        &mut self,
+        x: TextSlice<'_>,
+        y: TextSlice<'_>,
+        gap_open_fn: &[i32],
+        gap_extend_fn: &[i32],
+    ) -> Alignment {
+        let (m, n) = (x.len(), y.len());
+        self.traceback.init(m, n);
+
+        // Set the initial conditions
+        // We are repeating some work, but that's okay!
+        for k in 0..2 {
+            self.I[k].clear();
+            self.D[k].clear();
+            self.S[k].clear();
+
+            self.D[k].extend(repeat(MIN_SCORE).take(m + 1));
+            self.I[k].extend(repeat(MIN_SCORE).take(m + 1));
+            self.S[k].extend(repeat(MIN_SCORE).take(m + 1));
+
+            self.S[k][0] = 0;
+
+            if k == 0 {
+                let mut tb = TracebackCell::new();
+                tb.set_all(TB_START);
+                self.traceback.set(0, 0, tb);
+                self.Lx.clear();
+                self.Lx.extend(repeat(0usize).take(n + 1));
+                self.Ly.clear();
+                self.Ly.extend(repeat(0usize).take(m + 1));
+                self.Sn.clear();
+                self.Sn.extend(repeat(MIN_SCORE).take(m + 1));
+                self.Sn[0] = self.scoring.yclip_suffix;
+                self.Ly[0] = n;
+            }
+
+            for i in 1..=m {
+                let j = 1;
+                let mut tb = TracebackCell::new();
+                tb.set_all(TB_START);
+                if i == 1 {
+                    self.I[k][i] = gap_open_fn[j] + gap_extend_fn[j];
+                    tb.set_i_bits(TB_START);
+                } else {
+                    // Insert all i characters
+                    let i_score = gap_open_fn[j] + gap_extend_fn[j] * (i as i32);
+                    let c_score = self.scoring.xclip_prefix + gap_open_fn[j] + gap_extend_fn[j]; // Clip then insert
+                    if i_score > c_score {
+                        self.I[k][i] = i_score;
+                        tb.set_i_bits(TB_INS);
+                    } else {
+                        self.I[k][i] = c_score;
+                        tb.set_i_bits(TB_XCLIP_PREFIX);
+                    }
+                }
+
+                if i == m {
+                    tb.set_s_bits(TB_XCLIP_SUFFIX);
+                } else {
+                    self.S[k][i] = MIN_SCORE;
+                }
+
+                if self.I[k][i] > self.S[k][i] {
+                    self.S[k][i] = self.I[k][i];
+                    tb.set_s_bits(TB_INS);
+                }
+
+                if self.scoring.xclip_prefix > self.S[k][i] {
+                    self.S[k][i] = self.scoring.xclip_prefix;
+                    tb.set_s_bits(TB_XCLIP_PREFIX);
+                }
+
+                // Track the score if we do a suffix clip (x) after this character
+                if i != m && self.S[k][i] + self.scoring.xclip_suffix > self.S[k][m] {
+                    self.S[k][m] = self.S[k][i] + self.scoring.xclip_suffix;
+                    self.Lx[0] = m - i;
+                }
+
+                if k == 0 {
+                    self.traceback.set(i, 0, tb);
+                }
+                // Track the score if we do suffix clip (y) from here
+                if self.S[k][i] + self.scoring.yclip_suffix > self.Sn[i] {
+                    self.Sn[i] = self.S[k][i] + self.scoring.yclip_suffix;
+                    self.Ly[i] = n;
+                }
+            }
+        }
+
+        for j in 1..=n {
+            let curr = j % 2;
+            let prev = 1 - curr;
+
+            {
+                // Handle i = 0 case
+                let mut tb = TracebackCell::new();
+                self.I[curr][0] = MIN_SCORE;
+
+                if j == 1 {
+                    self.D[curr][0] = gap_open_fn[j] + gap_extend_fn[j];
+                    tb.set_d_bits(TB_START);
+                } else {
+                    // Delete all j characters
+                    let d_score = gap_open_fn[j] + gap_extend_fn[j] * (j as i32);
+                    let c_score = self.scoring.yclip_prefix + gap_open_fn[j] + gap_extend_fn[j];
+                    if d_score > c_score {
+                        self.D[curr][0] = d_score;
+                        tb.set_d_bits(TB_DEL);
+                    } else {
+                        self.D[curr][0] = c_score;
+                        tb.set_d_bits(TB_YCLIP_PREFIX);
+                    }
+                }
+                if self.D[curr][0] > self.scoring.yclip_prefix {
+                    self.S[curr][0] = self.D[curr][0];
+                    tb.set_s_bits(TB_DEL);
+                } else {
+                    self.S[curr][0] = self.scoring.yclip_prefix;
+                    tb.set_s_bits(TB_YCLIP_PREFIX);
+                }
+
+                if j == n && self.Sn[0] > self.S[curr][0] {
+                    // Check if the suffix clip score is better
+                    self.S[curr][0] = self.Sn[0];
+                    tb.set_s_bits(TB_YCLIP_SUFFIX);
+                // Track the score if we do suffix clip (y) from here
+                } else if self.S[curr][0] + self.scoring.yclip_suffix > self.Sn[0] {
+                    self.Sn[0] = self.S[curr][0] + self.scoring.yclip_suffix;
+                    self.Ly[0] = n - j;
+                }
+
+                self.traceback.set(0, j, tb);
+            }
+
+            for i in 1..=m {
+                self.S[curr][i] = MIN_SCORE;
+            }
+
+            let q = y[j - 1];
+            let xclip_score = self.scoring.xclip_prefix
+                + max(
+                    self.scoring.yclip_prefix,
+                    gap_open_fn[j] + gap_extend_fn[j] * (j as i32),
+                );
+            for i in 1..m + 1 {
+                let p = x[i - 1];
+                let mut tb = TracebackCell::new();
+
+                let m_score = self.S[prev][i - 1] + self.scoring.match_fn.score(p, q);
+
+                let i_score = self.I[curr][i - 1] + gap_extend_fn[j];
+                let s_score = self.S[curr][i - 1] + gap_open_fn[j] + gap_extend_fn[j];
+                let best_i_score;
+                if i_score > s_score {
+                    best_i_score = i_score;
+                    tb.set_i_bits(TB_INS);
+                } else {
+                    best_i_score = s_score;
+                    tb.set_i_bits(self.traceback.get(i - 1, j).get_s_bits());
+                }
+
+                let d_score = self.D[prev][i] + gap_extend_fn[j];
+                let s_score = self.S[prev][i] + gap_open_fn[j] + gap_extend_fn[j];
+                let best_d_score;
+                if d_score > s_score {
+                    best_d_score = d_score;
+                    tb.set_d_bits(TB_DEL);
+                } else {
+                    best_d_score = s_score;
+                    tb.set_d_bits(self.traceback.get(i, j - 1).get_s_bits());
+                }
+
+                tb.set_s_bits(TB_XCLIP_SUFFIX);
+                let mut best_s_score = self.S[curr][i];
+
+                if m_score > best_s_score {
+                    best_s_score = m_score;
+                    tb.set_s_bits(if p == q { TB_MATCH } else { TB_SUBST });
+                }
+
+                if best_i_score > best_s_score {
+                    best_s_score = best_i_score;
+                    tb.set_s_bits(TB_INS);
+                }
+
+                if best_d_score > best_s_score {
+                    best_s_score = best_d_score;
+                    tb.set_s_bits(TB_DEL);
+                }
+
+                if xclip_score > best_s_score {
+                    best_s_score = xclip_score;
+                    tb.set_s_bits(TB_XCLIP_PREFIX);
+                }
+
+                let yclip_score =
+                    self.scoring.yclip_prefix + gap_open_fn[j] + gap_extend_fn[j] * (i as i32);
+                if yclip_score > best_s_score {
+                    best_s_score = yclip_score;
+                    tb.set_s_bits(TB_YCLIP_PREFIX);
+                }
+
+                self.S[curr][i] = best_s_score;
+                self.I[curr][i] = best_i_score;
+                self.D[curr][i] = best_d_score;
+
+                // Track the score if we do suffix clip (x) from here
+                if self.S[curr][i] + self.scoring.xclip_suffix > self.S[curr][m] {
+                    self.S[curr][m] = self.S[curr][i] + self.scoring.xclip_suffix;
+                    self.Lx[j] = m - i;
+                }
+
+                // Track the score if we do suffix clip (y) from here
+                if self.S[curr][i] + self.scoring.yclip_suffix > self.Sn[i] {
+                    self.Sn[i] = self.S[curr][i] + self.scoring.yclip_suffix;
+                    self.Ly[i] = n - j;
+                }
+
+                self.traceback.set(i, j, tb);
+            }
+        }
+
+        // Handle suffix clipping in the j=n case
+        for i in 0..=m {
+            let j = n;
+            let curr = j % 2;
+            if self.Sn[i] > self.S[curr][i] {
+                self.S[curr][i] = self.Sn[i];
+                self.traceback.get_mut(i, j).set_s_bits(TB_YCLIP_SUFFIX);
+            }
+            if self.S[curr][i] + self.scoring.xclip_suffix > self.S[curr][m] {
+                self.S[curr][m] = self.S[curr][i] + self.scoring.xclip_suffix;
+                self.Lx[j] = m - i;
+                self.traceback.get_mut(m, j).set_s_bits(TB_XCLIP_SUFFIX);
+            }
+        }
+
+        // Since there could be a change in the last column of S,
+        // recompute the last column of I as this could also change
+        for i in 1..=m {
+            let j = n;
+            let curr = j % 2;
+            let s_score = self.S[curr][i - 1] + gap_open_fn[j] + gap_extend_fn[j];
+            if s_score > self.I[curr][i] {
+                self.I[curr][i] = s_score;
+                let s_bit = self.traceback.get(i - 1, j).get_s_bits();
+                self.traceback.get_mut(i, j).set_i_bits(s_bit);
+            }
+            if s_score > self.S[curr][i] {
+                self.S[curr][i] = s_score;
+                self.traceback.get_mut(i, j).set_s_bits(TB_INS);
+                if self.S[curr][i] + self.scoring.xclip_suffix > self.S[curr][m] {
+                    self.S[curr][m] = self.S[curr][i] + self.scoring.xclip_suffix;
+                    self.Lx[j] = m - i;
+                    self.traceback.get_mut(m, j).set_s_bits(TB_XCLIP_SUFFIX);
+                }
+            }
+        }
+
+        let mut i = m;
+        let mut j = n;
+        let mut operations = Vec::with_capacity(x.len());
+        let mut xstart: usize = 0usize;
+        let mut ystart: usize = 0usize;
+        let mut xend = m;
+        let mut yend = n;
+
+        let mut last_layer = self.traceback.get(i, j).get_s_bits();
+
+        loop {
+            let next_layer: u16;
+            match last_layer {
+                TB_START => break,
+                TB_INS => {
+                    operations.push(AlignmentOperation::Ins);
+                    next_layer = self.traceback.get(i, j).get_i_bits();
+                    i -= 1;
+                }
+                TB_DEL => {
+                    operations.push(AlignmentOperation::Del);
+                    next_layer = self.traceback.get(i, j).get_d_bits();
+                    j -= 1;
+                }
+                TB_MATCH => {
+                    operations.push(AlignmentOperation::Match);
+                    next_layer = self.traceback.get(i - 1, j - 1).get_s_bits();
+                    i -= 1;
+                    j -= 1;
+                }
+                TB_SUBST => {
+                    operations.push(AlignmentOperation::Subst);
+                    next_layer = self.traceback.get(i - 1, j - 1).get_s_bits();
+                    i -= 1;
+                    j -= 1;
+                }
+                TB_XCLIP_PREFIX => {
+                    operations.push(AlignmentOperation::Xclip(i));
+                    xstart = i;
+                    i = 0;
+                    next_layer = self.traceback.get(0, j).get_s_bits();
+                }
+                TB_XCLIP_SUFFIX => {
+                    operations.push(AlignmentOperation::Xclip(self.Lx[j]));
+                    i -= self.Lx[j];
+                    xend = i;
+                    next_layer = self.traceback.get(i, j).get_s_bits();
+                }
+                TB_YCLIP_PREFIX => {
+                    operations.push(AlignmentOperation::Yclip(j));
+                    ystart = j;
+                    j = 0;
+                    next_layer = self.traceback.get(i, 0).get_s_bits();
+                }
+                TB_YCLIP_SUFFIX => {
+                    operations.push(AlignmentOperation::Yclip(self.Ly[i]));
+                    j -= self.Ly[i];
+                    yend = j;
+                    next_layer = self.traceback.get(i, j).get_s_bits();
+                }
+                _ => panic!("Dint expect this!"),
+            }
+            last_layer = next_layer;
+        }
+
+        operations.reverse();
+        Alignment {
+            score: self.S[n % 2][m],
+            ystart,
+            xstart,
+            yend,
+            xend,
+            ylen: n,
+            xlen: m,
+            operations,
+            mode: AlignmentMode::Custom,
+        }
+    }
+
     /// Calculate global alignment of x against y.
     pub fn global(&mut self, x: TextSlice<'_>, y: TextSlice<'_>) -> Alignment {
         // Store the current clip penalties
