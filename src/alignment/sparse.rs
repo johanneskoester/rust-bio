@@ -393,6 +393,11 @@ pub fn find_kmer_matches_seq2_hashed(
     matches
 }
 
+// Search for mismatches between two sequences, using an array of sorted matches as input.
+// First proceed with expanding by 1 unit on the left side of the matches,
+// then proceed on an right expand of k+1 unit
+// A maximum number of mismatches can be input, the test is a strict one, which mean for 
+// allowed_mismatches = 1, a maximum of 2 mismatches can be found before stopping.
 pub fn expand_kmer_matches(
     seq1: &[u8],
     seq2: &[u8],
@@ -423,14 +428,17 @@ pub fn expand_kmer_matches(
         let mut n_mismatches = 0;
         let mut curr_pos = (this_match.0 as i32 - 1, this_match.1 as i32 - 1);
         loop {
+            // Reached last position of current match
             if last_match >= curr_pos {
                 break;
             }
+            // Add the current position mismatch to the total sum of mismatch
             n_mismatches += if seq1[curr_pos.0 as usize] == seq2[curr_pos.1 as usize] {
                 0
             } else {
                 1
             };
+            // Maximum number of mismatches as been reached
             if n_mismatches > allowed_mismatches {
                 break;
             }
@@ -448,6 +456,7 @@ pub fn expand_kmer_matches(
 
     let mut next_match_along_diagonal: HashMapFx<i32, (u32, u32)> = HashMapFx::default();
 
+    // Reverting the left expanded_matches to test on right expand
     for &this_match in &left_expanded_matches {
         let diag = (this_match.0 as i32) - (this_match.1 as i32);
         let max_inc = (min(
