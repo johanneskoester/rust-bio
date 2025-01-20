@@ -101,6 +101,27 @@ impl Motif for DNAMotif {
         }
     }
 
+    fn incr(mono: u8) -> Result<Array1<f32>> {
+        match mono {
+            b'A' => Ok(array![1.0, 0.0, 0.0, 0.0]),
+            b'T' => Ok(array![0.0, 1.0, 0.0, 0.0]),
+            b'G' => Ok(array![0.0, 0.0, 1.0, 0.0]),
+            b'C' => Ok(array![0.0, 0.0, 0.0, 1.0]),
+            b'M' => Ok(array![0.5, 0.0, 0.0, 0.5]),
+            b'R' => Ok(array![0.5, 0.0, 0.5, 0.0]),
+            b'W' => Ok(array![0.5, 0.5, 0.0, 0.0]),
+            b'S' => Ok(array![0.0, 0.0, 0.5, 0.5]),
+            b'Y' => Ok(array![0.0, 0.5, 0.0, 0.5]),
+            b'K' => Ok(array![0.0, 0.5, 0.5, 0.0]),
+            b'V' => Ok(array![0.333, 0.0, 0.333, 0.333]),
+            b'H' => Ok(array![0.333, 0.333, 0.0, 0.333]),
+            b'D' => Ok(array![0.333, 0.333, 0.333, 0.0]),
+            b'B' => Ok(array![0.0, 0.333, 0.333, 0.333]),
+            b'N' => Ok(array![0.25, 0.25, 0.25, 0.25]),
+            _ => Err(Error::InvalidMonomer { mono }),
+        }
+    }
+
     fn len(&self) -> usize {
         self.scores.dim().0
     }
@@ -143,10 +164,14 @@ impl Motif for DNAMotif {
             fracs.sort_by(|a, b| b.partial_cmp(a).unwrap());
 
             res.push(if fracs[0].0 > 0.5 && fracs[0].0 > 2.0 * fracs[1].0 {
+                // use the dominant nucleotide if it's above 50% and more than
+                // 2x the second-highest nucleotide
                 Self::MONOS[fracs[0].1]
             } else if 4.0 * (fracs[0].0 + fracs[1].0) > 3.0 {
+                // the top two nucleotides represent > 75%
                 two(Self::MONOS[fracs[0].1], Self::MONOS[fracs[1].1])
             } else if fracs[3].0 < EPSILON {
+                // the least common nucleotide is ~0
                 let base = Self::MONOS[fracs[3].1];
                 match base {
                     b'T' => b'V',
@@ -188,13 +213,12 @@ mod tests {
     #[test]
     fn simple_pssm() {
         let pssm: DNAMotif = DNAMotif::from_seqs(
-            vec![
+            &[
                 b"AAAA".to_vec(),
                 b"TTTT".to_vec(),
                 b"GGGG".to_vec(),
                 b"CCCC".to_vec(),
-            ]
-            .as_ref(),
+            ],
             None,
         )
         .unwrap();
@@ -202,7 +226,7 @@ mod tests {
     }
     #[test]
     fn find_motif() {
-        let pssm = DNAMotif::from_seqs(vec![b"ATGC".to_vec()].as_ref(), None).unwrap();
+        let pssm = DNAMotif::from_seqs(&[b"ATGC".to_vec()], None).unwrap();
         let seq = b"GGGGATGCGGGG";
         if let Ok(ScoredPos {
             ref loc, ref sum, ..
@@ -218,16 +242,14 @@ mod tests {
     #[test]
     fn test_info_content() {
         // matrix w/ 100% match to A at each position
-        let pssm =
-            DNAMotif::from_seqs(vec![b"AAAA".to_vec()].as_ref(), Some(&[0.0, 0.0, 0.0, 0.0]))
-                .unwrap();
+        let pssm = DNAMotif::from_seqs(&[b"AAAA".to_vec()], Some(&[0.0; 4])).unwrap();
         // 4 bases * 2 bits per base = 8
         assert_relative_eq!(pssm.info_content(), 8.0, epsilon = f32::EPSILON);
     }
 
     #[test]
     fn test_mono_err() {
-        let pssm = DNAMotif::from_seqs(vec![b"ATGC".to_vec()].as_ref(), None).unwrap();
+        let pssm = DNAMotif::from_seqs(&[b"ATGC".to_vec()], None).unwrap();
         assert_eq!(
             pssm.score(b"AAAAXAAAAAAAAA"),
             Err(Error::InvalidMonomer { mono: b'X' })
@@ -238,7 +260,7 @@ mod tests {
     fn test_inconsist_err() {
         assert_eq!(
             DNAMotif::from_seqs(
-                vec![b"AAAA".to_vec(), b"TTTT".to_vec(), b"C".to_vec()].as_ref(),
+                &[b"AAAA".to_vec(), b"TTTT".to_vec(), b"C".to_vec()],
                 Some(&[0.0; 4])
             ),
             Err(Error::InconsistentLen)
@@ -247,29 +269,24 @@ mod tests {
 
     #[test]
     fn test_degenerate_consensus_same_bases() {
-        let pssm: DNAMotif = DNAMotif::from_seqs(
-            vec![b"ATGC".to_vec(), b"ATGC".to_vec()].as_ref(),
-            Some(&[0., 0., 0., 0.]),
-        )
-        .unwrap();
+        let pssm: DNAMotif =
+            DNAMotif::from_seqs(&[b"ATGC".to_vec(), b"ATGC".to_vec()], Some(&[0.0; 4])).unwrap();
         assert_eq!(pssm.degenerate_consensus(), b"ATGC".to_vec());
     }
 
     #[test]
     fn test_degenerate_consensus_two_bases() {
-        let pssm: DNAMotif = DNAMotif::from_seqs(
-            vec![b"AAACCG".to_vec(), b"CGTGTT".to_vec()].as_ref(),
-            Some(&[0., 0., 0., 0.]),
-        )
-        .unwrap();
+        let pssm: DNAMotif =
+            DNAMotif::from_seqs(&[b"AAACCG".to_vec(), b"CGTGTT".to_vec()], Some(&[0.0; 4]))
+                .unwrap();
         assert_eq!(pssm.degenerate_consensus(), b"MRWSYK".to_vec());
     }
 
     #[test]
     fn test_degenerate_consensus_three_bases() {
         let pssm: DNAMotif = DNAMotif::from_seqs(
-            vec![b"AAAC".to_vec(), b"CCGG".to_vec(), b"GTTT".to_vec()].as_ref(),
-            Some(&[0., 0., 0., 0.]),
+            &[b"AAAC".to_vec(), b"CCGG".to_vec(), b"GTTT".to_vec()],
+            Some(&[0.0; 4]),
         )
         .unwrap();
         assert_eq!(pssm.degenerate_consensus(), b"VHDB".to_vec());
@@ -278,16 +295,20 @@ mod tests {
     #[test]
     fn test_degenerate_consensus_n() {
         let pssm: DNAMotif = DNAMotif::from_seqs(
-            vec![
+            &[
                 b"AAAA".to_vec(),
                 b"GGGG".to_vec(),
                 b"CCCC".to_vec(),
                 b"TTTT".to_vec(),
-            ]
-            .as_ref(),
+            ],
             None,
         )
         .unwrap();
         assert_eq!(pssm.degenerate_consensus(), b"NNNN".to_vec());
+    }
+    #[test]
+    fn test_degenerate_input() {
+        let pssm: DNAMotif = DNAMotif::from_seqs(&[b"ATMC".to_vec()], Some(&[0.0; 4])).unwrap();
+        assert_eq!(pssm.degenerate_consensus(), b"ATMC".to_vec());
     }
 }

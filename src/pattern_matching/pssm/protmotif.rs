@@ -101,7 +101,20 @@ impl Motif for ProtMotif {
             Self::MONOS[idx]
         }
     }
-
+    fn incr(mono: u8) -> Result<Array1<f32>> {
+        if mono >= 127 {
+            Err(Error::InvalidMonomer { mono })
+        } else {
+            if mono == b'X' {
+                Ok(Array1::from_elem(Self::MONO_CT, 1.0 / Self::MONO_CT as f32))
+            } else {
+                let idx = Self::LK[mono as usize] as usize;
+                let mut v = Array1::zeros(Self::MONO_CT);
+                v[idx] += 1.0;
+                Ok(v)
+            }
+        }
+    }
     fn len(&self) -> usize {
         self.scores.dim().0
     }
@@ -190,7 +203,7 @@ mod tests {
 
     #[test]
     fn test_mono_err() {
-        let pssm = ProtMotif::from_seqs(vec![b"ARGN".to_vec()].as_ref(), None).unwrap();
+        let pssm = ProtMotif::from_seqs(&[b"ARGN".to_vec()], None).unwrap();
         assert!(matches!(
             pssm.score(b"AAAABAAAAAAAAA"),
             Err(Error::InvalidMonomer { mono: b'B' })
@@ -201,7 +214,7 @@ mod tests {
     fn test_inconsist_err() {
         assert!(matches!(
             ProtMotif::from_seqs(
-                vec![b"NNNNN".to_vec(), b"RRRRR".to_vec(), b"C".to_vec()].as_ref(),
+                &[b"NNNNN".to_vec(), b"RRRRR".to_vec(), b"C".to_vec()],
                 Some(&[0.0; 20])
             ),
             Err(Error::InconsistentLen)
@@ -211,7 +224,7 @@ mod tests {
     #[test]
     fn test_degenerate_consensus_same_bases() {
         let pssm = ProtMotif::from_seqs(
-            vec![b"QVTYNDSA".to_vec(), b"QVTYNDSA".to_vec()].as_ref(),
+            &[b"QVTYNDSA".to_vec(), b"QVTYNDSA".to_vec()],
             Some(&[0.0; 20]),
         )
         .unwrap();
@@ -221,10 +234,18 @@ mod tests {
     #[test]
     fn test_degenerate_consensus_x() {
         let pssm = ProtMotif::from_seqs(
-            vec![b"QVTYNDSA".to_vec(), b"ASDNYTVQ".to_vec()].as_ref(),
+            &[b"QVTYNDSA".to_vec(), b"ASDNYTVQ".to_vec()],
             Some(&[0.0; 20]),
         )
         .unwrap();
         assert_eq!(pssm.degenerate_consensus(), b"XXXXXXXX".to_vec());
+    }
+    fn test_degenerate_input() {
+        let pssm = ProtMotif::from_seqs(
+            &[b"AAAAARNDAAA".to_vec(), b"AAAAARNDXAA".to_vec()],
+            Some(&[0.0; 20]),
+        )
+        .unwrap();
+        assert_eq!(pssm.degenerate_consensus(), b"AAAAARNDXAA".to_vec());
     }
 }

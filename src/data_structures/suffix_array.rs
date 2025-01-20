@@ -298,10 +298,7 @@ pub fn suffix_array(text: &[u8]) -> RawSuffixArray {
 /// use bio::data_structures::suffix_array::suffix_array_int;
 /// let text: Vec<usize> = vec![3, 2, 2, 4, 4, 1, 2, 1, 0];
 /// let sa = suffix_array_int(&text);
-/// assert_eq!(
-///     sa,
-///     vec![8, 7, 5, 6, 1, 2, 0, 4, 3]
-/// );
+/// assert_eq!(sa, vec![8, 7, 5, 6, 1, 2, 0, 4, 3]);
 /// ```
 pub fn suffix_array_int<T>(text: &[T]) -> RawSuffixArray
 where

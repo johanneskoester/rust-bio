@@ -176,8 +176,8 @@ impl TryInto<u8> for Phase {
     ///
     /// # Example
     /// ```
-    /// use std::convert::TryInto;
     /// use bio::io::gff::Phase;
+    /// use std::convert::TryInto;
     ///
     /// let p = Phase::from(0);
     /// let u: u8 = p.try_into().unwrap();
